@@ -1,15 +1,7 @@
 {
   "appData": {
     "tdee": 1750,
-    "logs": [
-      {
-        "id": 1780836459727,
-        "type": "food",
-        "name": "dinner",
-        "cal": 505,
-        "date": "7/6/2026"
-      }
-    ]
+    "logs": []
   },
-  "lastUpdated": "2026-06-07T12:49:15.988Z"
+  "lastUpdated": "2026-06-07T12:49:48.038Z"
 }
