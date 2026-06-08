@@ -55,7 +55,7 @@
             margin-bottom: 25px;
         }
 
-        /* ========== 頂部核心控制按鈕組 (對齊截圖風格) ========== */
+        /* ========== 頂部核心控制按鈕組 ========== */
         .controls {
             display: flex;
             gap: 10px;
@@ -84,22 +84,22 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
 
-        .btn-import { background-color: #28a745; } /* 綠色 */
+        .btn-import { background-color: #28a745; }
         .btn-import:hover { background-color: #218838; }
 
-        .btn-export { background-color: #17a2b8; } /* 藍綠色 */
+        .btn-export { background-color: #17a2b8; }
         .btn-export:hover { background-color: #138496; }
 
-        .btn-reset { background-color: #dc3545; } /* 紅色 */
+        .btn-reset { background-color: #dc3545; }
         .btn-reset:hover { background-color: #c82333; }
 
-        .btn-upload { background-color: #6f42c1; } /* 紫色 */
+        .btn-upload { background-color: #6f42c1; }
         .btn-upload:hover { background-color: #5a32a3; }
 
-        .btn-download { background-color: #fd7e14; } /* 橘色 */
+        .btn-download { background-color: #fd7e14; }
         .btn-download:hover { background-color: #e96b02; }
 
-        .btn-settings { background-color: #6c757d; } /* 灰色 */
+        .btn-settings { background-color: #6c757d; }
         .btn-settings:hover { background-color: #5a6268; }
 
         .file-input { display: none; }
@@ -384,8 +384,8 @@
                 <div class="stat-val" id="todayEat" style="color: #eb4d4b;">0 kcal</div>
             </div>
             <div class="stat-box">
-                <div>今日已消耗 (含基礎)</div>
-                <div class="stat-val" id="todayBurn" style="color: #2ed573;">1750 kcal</div>
+                <div>今日還剩</div>
+                <div class="stat-val" id="todayRemaining" style="color: #2ed573;">1750 kcal</div>
             </div>
             <div class="stat-box highlight">
                 <div>距離減去 1kg 目標還差</div>
@@ -536,6 +536,7 @@
         document.getElementById('cancelBtn').style.display = 'none';
     }
 
+    // 這裡已改動：更新核心渲染畫面的邏輯
     function render() {
         const logList = document.getElementById('logList');
         logList.innerHTML = '';
@@ -543,9 +544,15 @@
         let todayEat = 0;
         let todayExtraBurn = 0;
 
+        // 取得今天的日期字串用作比對
+        const todayStr = new Date().toLocaleDateString();
+
         appData.logs.forEach((item, index) => {
-            if (item.type === 'food') todayEat += item.cal;
-            else todayExtraBurn += item.cal;
+            // 只有當天日期的紀錄才會加入今日看板計算
+            if (item.date === todayStr) {
+                if (item.type === 'food') todayEat += item.cal;
+                else todayExtraBurn += item.cal;
+            }
 
             const itemEl = document.createElement('div');
             itemEl.className = `log-item type-${item.type}`;
@@ -563,10 +570,23 @@
             logList.appendChild(itemEl);
         });
 
-        document.getElementById('todayEat').innerText = `${todayEat} kcal`;
-        document.getElementById('todayBurn').innerText = `${appData.tdee + todayExtraBurn} kcal`;
+        // 核心修改：計算今日剩餘卡路里 (TDEE + 運動消耗 - 飲食攝取)
+        const todayRemaining = (appData.tdee + todayExtraBurn) - todayEat;
 
-        // 計算累積赤字進度
+        // 更新至畫面上
+        document.getElementById('todayEat').innerText = `${todayEat} kcal`;
+        
+        const remainingEl = document.getElementById('todayRemaining');
+        remainingEl.innerText = `${todayRemaining} kcal`;
+        
+        // 顏色警示：若剩餘卡路里變負數（即爆卡了），變紅色；否則保持綠色
+        if (todayRemaining < 0) {
+            remainingEl.style.color = '#ff4d4d'; // 超標變紅
+        } else {
+            remainingEl.style.color = '#2ed573'; // 還有額度留綠
+        }
+
+        /* ==================== 計算累積赤字進度 ==================== */
         let totalDeficit = 0;
         const dateGroups = {};
         appData.logs.forEach(item => {
@@ -637,7 +657,7 @@
         }
     }
 
-    /* ==================== GitHub 同步核心代碼移植 ==================== */
+    /* ==================== GitHub 同步核心代碼 ==================== */
     function openGithubModal() {
         document.getElementById('githubModal').classList.add('active');
         const settings = getGithubSettings();
