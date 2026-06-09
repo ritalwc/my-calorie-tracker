@@ -1,0 +1,23 @@
+{
+  "foodDatabase": [
+    {
+      "id": 1718000000001,
+      "name": "方包",
+      "baseSize": 100,
+      "baseCal": 291,
+      "protein": 6.8,
+      "fat": 6.8,
+      "carb": 53.6
+    },
+    {
+      "id": 1718000000002,
+      "name": "黑糖紅豆優格",
+      "baseSize": 100,
+      "baseCal": 120,
+      "protein": 3.5,
+      "fat": 2,
+      "carb": 22
+    }
+  ],
+  "lastUpdated": "2026-06-09T02:06:45.553Z"
+}
