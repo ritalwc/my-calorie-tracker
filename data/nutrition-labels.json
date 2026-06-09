@@ -1,6 +1,33 @@
 {
   "foodDatabase": [
     {
+      "id": 1781006860333,
+      "name": "灼白菜",
+      "baseSize": 90,
+      "baseCal": 45,
+      "protein": 0,
+      "fat": 0,
+      "carb": 0
+    },
+    {
+      "id": 1781006834672,
+      "name": "蝦醬豬肉",
+      "baseSize": 75,
+      "baseCal": 210,
+      "protein": 0,
+      "fat": 0,
+      "carb": 0
+    },
+    {
+      "id": 1781006801387,
+      "name": "飯",
+      "baseSize": 160,
+      "baseCal": 260,
+      "protein": 0,
+      "fat": 0,
+      "carb": 0
+    },
+    {
       "id": 1718000000001,
       "name": "方包",
       "baseSize": 100,
@@ -19,5 +46,5 @@
       "carb": 22
     }
   ],
-  "lastUpdated": "2026-06-09T02:17:55.179Z"
+  "lastUpdated": "2026-06-09T12:08:01.081Z"
 }
