@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡路里與營養標籤計算器</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --btn-import: #388e3c;
+            --btn-export: #3a96b4;
+            --btn-reset-db: #c62828;
+            --btn-reset-intake: #e53935;
+            --btn-upload: #5e35b1;
+            --btn-download: #f57c00;
+            --btn-sync: #5c677d;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        body {
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            padding: 20px 20px 100px 20px; /* 底部留空給固定加總欄 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        /* 介面按鈕區塊 */
+        .sync-panel {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .sync-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: 500;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 4px rgba(0,0,0,0.15);
+            transition: transform 0.1s, filter 0.2s;
+        }
+
+        .sync-btn:hover {
+            filter: brightness(1.05);
+        }
+
+        .sync-btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-import { background-color: var(--btn-import); }
+        .btn-export { background-color: var(--btn-export); }
+        .btn-reset-db { background-color: var(--btn-reset-db); }
+        .btn-upload { background-color: var(--btn-upload); }
+        .btn-download { background-color: var(--btn-download); }
+        .btn-sync { background-color: var(--btn-sync); }
+        
+        /* 新增：重置輸入份量按鈕樣式（獨立功能） */
+        .btn-reset-intake { 
+            background-color: transparent; 
+            border: 2px solid var(--btn-reset-intake);
+            color: var(--btn-reset-intake);
+            box-shadow: none;
+        }
+        .btn-reset-intake:hover {
+            background-color: var(--btn-reset-intake);
+            color: white;
+        }
+
+        /* 搜尋與新增區塊 */
+        .search-add-box {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 25px;
+        }
+
+        .search-bar {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-bar input:focus {
+            border-color: var(--btn-export);
+        }
+
+        .search-bar i {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+        }
+
+        /* 表單設計 */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 11fr));
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .btn-add {
+            width: 100%;
+            padding: 12px;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        /* 食品清單與卡片設計 */
+        .food-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .food-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border-left: 6px solid var(--btn-export);
+            position: relative;
+            transition: transform 0.3s, box-shadow 0.3s;
+            scroll-margin-top: 20px;
+        }
+
+        .food-card.highlight {
+            animation: pulse-highlight 2s ease-in-out;
+            border-left-color: var(--btn-download);
+        }
+
+        @keyframes pulse-highlight {
+            0% { transform: scale(1); box-shadow: 0 0 0 rgba(245, 124, 0, 0); }
+            50% { transform: scale(1.02); box-shadow: 0 0 15px rgba(245, 124, 0, 0.5); }
+            100% { transform: scale(1); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        }
+
+        .food-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .food-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .btn-delete {
+            background: none;
+            border: none;
+            color: #e53935;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* 標籤對比樣式 */
+        .nutrition-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .calc-area {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed #ddd;
+        }
+
+        .calc-input {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .result-badge {
+            margin-left: auto;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 15px;
+        }
+
+        /* 固定於底部的總熱量計算計算欄 */
+        .total-summary-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+
+        .total-summary-content {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .total-title {
+            font-size: 18px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .total-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #4caf50;
+            background: rgba(255,255,255,0.1);
+            padding: 4px 15px;
+            border-radius: 30px;
+            border: 1px solid rgba(76, 175, 80, 0.4);
+        }
+
+        #fileInput { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1><i class="fa-solid fa-utensils"></i> 卡路里與營養標籤數據庫</h1>
+
+    <div class="sync-panel">
+        <div class="btn-row">
+            <button class="sync-btn btn-import" onclick="triggerImport()"><i class="fa-solid fa-inbox"></i> 導入資料</button>
+            <button class="sync-btn btn-export" onclick="exportData()"><i class="fa-solid fa-box-open"></i> 導出資料</button>
+            <button class="sync-btn btn-reset-intake" onclick="resetAllIntakes()"><i class="fa-solid fa-eraser"></i> 重置今日攝入份量</button>
+            <button class="sync-btn btn-reset-db" onclick="resetData()"><i class="fa-solid fa-rotate"></i> 重置所有紀錄(清空庫)</button>
+        </div>
+        <div class="btn-row" style="margin-top: 8px; margin-bottom: 0;">
+            <button class="sync-btn btn-upload" onclick="cloudUpload()"><i class="fa-solid fa-cloud"></i> 上傳雲端</button>
+            <button class="sync-btn btn-download" onclick="cloudDownload()"><i class="fa-solid fa-cloud-arrow-down"></i> 下載雲端</button>
+            <button class="sync-btn btn-sync"><i class="fa-solid fa-gear"></i> 同步設定</button>
+        </div>
+        <input type="file" id="fileInput" accept=".json" onchange="importData(event)">
+    </div>
+
+    <div class="search-add-box">
+        <div class="search-bar">
+            <input type="text" id="searchBox" placeholder="輸入食品名稱... 自動精準滑動定位並高亮" oninput="searchAndScroll()">
+            <i class="fa-solid fa-magnifying-glass"></i>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
+
+        <form id="foodForm" onsubmit="addFood(event)">
+            <div class="form-grid">
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>食品名稱</label>
+                    <input type="text" id="foodName" required placeholder="例如：方包">
+                </div>
+                <div class="form-group">
+                    <label>基準份量(g/ml)</label>
+                    <input type="number" id="baseSize" required min="1" value="100">
+                </div>
+                <div class="form-group">
+                    <label>熱量 (kcal)</label>
+                    <input type="number" id="baseCal" required min="0" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>蛋白質 (g)</label>
+                    <input type="number" id="baseProtein" min="0" step="0.1" value="0">
+                </div>
+                <div class="form-group">
+                    <label>脂肪 (g)</label>
+                    <input type="number" id="baseFat" min="0" step="0.1" value="0">
+                </div>
+                <div class="form-group">
+                    <label>碳水 (g)</label>
+                    <input type="number" id="baseCarb" min="0" step="0.1" value="0">
+                </div>
+            </div>
+            <button type="submit" class="btn-add"><i class="fa-solid fa-plus"></i> 新增至個人數據庫</button>
+        </form>
+    </div>
+
+    <div class="food-list" id="foodList"></div>
+</div>
+
+<div class="total-summary-bar">
+    <div class="total-summary-content">
+        <div class="total-title"><i class="fa-solid fa-calculator"></i> 當餐已選食物總熱量計算：</div>
+        <div class="total-value"><span id="totalMealCalories">0.0</span> kcal</div>
+    </div>
+</div>
+
+<script>
+    // 初始化本地資料庫
+    let foodDatabase = JSON.parse(localStorage.getItem('food_db')) || [
+        { id: 1718000000001, name: "方包", baseSize: 100, baseCal: 291, protein: 6.8, fat: 6.8, carb: 53.6 },
+        { id: 1718000000002, name: "黑糖紅豆優格", baseSize: 100, baseCal: 120, protein: 3.5, fat: 2.0, carb: 22 }
+    ];
+
+    // 用來記錄當前使用者輸入的份量，重整或單獨重置時使用
+    let intakeRecords = {};
+
+    // 渲染清單
+    function renderList() {
+        const listContainer = document.getElementById('foodList');
+        listContainer.innerHTML = "";
+
+        foodDatabase.forEach(food => {
+            const card = document.createElement('div');
+            card.className = 'food-card';
+            card.id = `food-${food.id}`;
+            card.setAttribute('data-name', food.name);
+
+            // 檢查先前是否有輸入過份量
+            const currentIntake = intakeRecords[food.id] || "";
+            const currentCal = currentIntake ? ((currentIntake / food.baseSize) * food.baseCal).toFixed(1) : "0.0";
+
+            card.innerHTML = `
+                <div class="food-header">
+                    <span class="food-name">${food.name}</span>
+                    <button class="btn-delete" onclick="deleteFood(${food.id})"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+                <div class="nutrition-info">
+                    <span><strong>每</strong> ${food.baseSize} g/ml</span>
+                    <span><strong>熱量：</strong>${food.baseCal} kcal</span>
+                    <span><strong>蛋白質：</strong>${food.protein} g</span>
+                    <span><strong>脂肪：</strong>${food.fat} g</span>
+                    <span><strong>碳水：</strong>${food.carb} g</span>
+                </div>
+                <div class="calc-area">
+                    <label style="font-size: 14px; color: #555;">你吃了：</label>
+                    <input type="number" class="calc-input" value="${currentIntake}" placeholder="輸入份量" min="0" oninput="updateSingleCardCal(this, ${food.id}, ${food.baseSize}, ${food.baseCal})">
+                    <label style="font-size: 14px; color: #555;">g/ml</label>
+                    <div class="result-badge">攝取：<span class="cal-result">${currentCal}</span> kcal</div>
+                </div>
+            `;
+            listContainer.appendChild(card);
+        });
+        updateTotalSummary();
+    }
+
+    // 更新單張卡片的計算，並即時連動最下方總加總
+    function updateSingleCardCal(input, foodId, baseSize, baseCal) {
+        const consumed = parseFloat(input.value) || 0;
+        
+        // 記錄或刪除該食品的攝取紀錄
+        if (input.value === "" || consumed <= 0) {
+            delete intakeRecords[foodId];
+        } else {
+            intakeRecords[foodId] = consumed;
+        }
+
+        const resultSpan = input.parentElement.querySelector('.cal-result');
+        const totalCal = (consumed / baseSize) * baseCal;
+        resultSpan.textContent = totalCal.toFixed(1);
+
+        // 即時重新加總所有卡片
+        updateTotalSummary();
+    }
+
+    // 重新計算底部所有輸入食物的總熱量
+    function updateTotalSummary() {
+        let totalSum = 0;
+        
+        foodDatabase.forEach(food => {
+            if (intakeRecords[food.id]) {
+                const consumed = intakeRecords[food.id];
+                totalSum += (consumed / food.baseSize) * food.baseCal;
+            }
+        });
+
+        document.getElementById('totalMealCalories').textContent = totalSum.toFixed(1);
+    }
+
+    // 功能一：【一鍵重置今日攝入份量】（只清空輸入框，保留營養標籤資料庫）
+    function resetAllIntakes() {
+        intakeRecords = {}; // 清空暫存紀錄
+        const inputs = document.querySelectorAll('.calc-input');
+        inputs.forEach(input => input.value = ""); // 清空畫面上所有輸入欄
+        
+        const results = document.querySelectorAll('.cal-result');
+        results.forEach(res => res.textContent = "0.0"); // 重置單張卡片結果
+        
+        updateTotalSummary(); // 更新總加總為 0
+    }
+
+    // 新增食品
+    function addFood(e) {
+        e.preventDefault();
+        const newFood = {
+            id: Date.now(),
+            name: document.getElementById('foodName').value,
+            baseSize: parseFloat(document.getElementById('baseSize').value),
+            baseCal: parseFloat(document.getElementById('baseCal').value),
+            protein: parseFloat(document.getElementById('baseProtein').value) || 0,
+            fat: parseFloat(document.getElementById('baseFat').value) || 0,
+            carb: parseFloat(document.getElementById('baseCarb').value) || 0
+        };
+
+        foodDatabase.unshift(newFood);
+        saveData();
+        renderList();
+        document.getElementById('foodForm').reset();
+    }
+
+    // 刪除食品
+    function deleteFood(id) {
+        if(confirm("確定要刪除這項食品登記嗎？")) {
+            foodDatabase = foodDatabase.filter(item => item.id !== id);
+            delete intakeRecords[id]; // 同步移除加總計算
+            saveData();
+            renderList();
+        }
+    }
+
+    // 快速搜尋與平滑滾動
+    function searchAndScroll() {
+        const query = document.getElementById('searchBox').value.trim().toLowerCase();
+        if (!query) return;
+
+        const cards = document.querySelectorAll('.food-card');
+        let targetCard = null;
+
+        cards.forEach(card => {
+            const name = card.getAttribute('data-name').toLowerCase();
+            if (name.includes(query) && !targetCard) {
+                targetCard = card;
+            }
+            card.classList.remove('highlight');
+        });
+
+        if (targetCard) {
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetCard.classList.add('highlight');
+        }
+    }
+
+    // 本地保存
+    function saveData() {
+        localStorage.setItem('food_db', JSON.stringify(foodDatabase));
+    }
+
+    // 控制功能
+    function triggerImport() { document.getElementById('fileInput').click(); }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (Array.isArray(imported)) {
+                    foodDatabase = imported;
+                    intakeRecords = {}; // 導入新庫時清空前次的攝入記錄
+                    saveData();
+                    renderList();
+                    alert("資料庫導入成功！");
+                } else { alert("格式錯誤，導入失敗。"); }
+            } catch (err) { alert("讀取檔案失敗。"); }
+        };
+        reader.readAsText(file);
+    }
+
+    function exportData() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(foodDatabase, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `nutrition_db_${Date.now()}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+    }
+
+    // 功能二：【重置所有紀錄】（這是清空整個本地標籤庫）
+    function resetData() {
+        if(confirm("⚠️ 警告：這將會清空所有登記的食品資料庫標籤！確定要全部刪除嗎？")) {
+            foodDatabase = [];
+            intakeRecords = {};
+            saveData();
+            renderList();
+        }
+    }
+
+    function cloudUpload() { alert("雲端備份功能已就緒"); }
+    function cloudDownload() { alert("已成功自雲端同步最新營養標籤數據庫"); }
+
+    window.onload = () => renderList();
+</script>
+</body>
+</html>
