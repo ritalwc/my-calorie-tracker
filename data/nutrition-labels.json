@@ -1,6 +1,69 @@
 {
   "foodDatabase": [
     {
+      "id": 1781054816838,
+      "name": "即食燕麥",
+      "baseSize": 30,
+      "baseCal": 117,
+      "protein": 0,
+      "fat": 0,
+      "carb": 0
+    },
+    {
+      "id": 1781054334081,
+      "name": "黑芝麻蛋白粉",
+      "baseSize": 29,
+      "baseCal": 139,
+      "protein": 22,
+      "fat": 4.5,
+      "carb": 2.7
+    },
+    {
+      "id": 1781052936596,
+      "name": "調製豆乳",
+      "baseSize": 100,
+      "baseCal": 54.1,
+      "protein": 3.3,
+      "fat": 2.5,
+      "carb": 4.6
+    },
+    {
+      "id": 1781052790353,
+      "name": "牛油果",
+      "baseSize": 1,
+      "baseCal": 320,
+      "protein": 0,
+      "fat": 0,
+      "carb": 0
+    },
+    {
+      "id": 1781052739322,
+      "name": "雞蛋",
+      "baseSize": 1,
+      "baseCal": 72,
+      "protein": 0,
+      "fat": 0,
+      "carb": 0
+    },
+    {
+      "id": 1781052565407,
+      "name": "即食雞胸",
+      "baseSize": 100,
+      "baseCal": 109,
+      "protein": 21,
+      "fat": 2.5,
+      "carb": 0
+    },
+    {
+      "id": 1781052356145,
+      "name": "烏冬",
+      "baseSize": 100,
+      "baseCal": 142,
+      "protein": 3.7,
+      "fat": 1,
+      "carb": 29.7
+    },
+    {
       "id": 1781006860333,
       "name": "灼白菜",
       "baseSize": 90,
@@ -46,5 +109,5 @@
       "carb": 22
     }
   ],
-  "lastUpdated": "2026-06-09T12:08:39.660Z"
+  "lastUpdated": "2026-06-10T01:31:46.050Z"
 }
