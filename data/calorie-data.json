@@ -3,6 +3,20 @@
     "tdee": 1750,
     "logs": [
       {
+        "id": 1781146820222,
+        "type": "food",
+        "name": "lunch",
+        "cal": 497,
+        "date": "11/6/2026"
+      },
+      {
+        "id": 1781145925310,
+        "type": "exercise",
+        "name": "swim",
+        "cal": 424,
+        "date": "11/6/2026"
+      },
+      {
         "id": 1781138533262,
         "type": "food",
         "name": "BREAKFAST",
@@ -88,5 +102,5 @@
       }
     ]
   },
-  "lastUpdated": "2026-06-11T00:42:20.597Z"
+  "lastUpdated": "2026-06-11T03:00:29.655Z"
 }
