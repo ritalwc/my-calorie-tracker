@@ -3,6 +3,13 @@
     "tdee": 1750,
     "logs": [
       {
+        "id": 1781240264560,
+        "type": "food",
+        "name": "lunch",
+        "cal": 509,
+        "date": "12/6/2026"
+      },
+      {
         "id": 1781227381285,
         "type": "food",
         "name": "BREAKFAST",
@@ -116,5 +123,5 @@
       }
     ]
   },
-  "lastUpdated": "2026-06-12T01:25:58.331Z"
+  "lastUpdated": "2026-06-12T04:57:53.653Z"
 }
