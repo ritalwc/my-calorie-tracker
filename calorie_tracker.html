@@ -151,13 +151,19 @@
             color: white;
         }
 
+        .stat-box.success-highlight {
+            grid-column: span 2;
+            background: var(--secondary);
+            color: white;
+        }
+
         .stat-val {
             font-size: 20px;
             font-weight: bold;
             margin-top: 5px;
         }
 
-        .stat-box.highlight .stat-val {
+        .stat-box.highlight .stat-val, .stat-box.success-highlight .stat-val {
             font-size: 26px;
         }
 
@@ -387,6 +393,11 @@
                 <div>今日還剩</div>
                 <div class="stat-val" id="todayRemaining" style="color: #2ed573;">1750 kcal</div>
             </div>
+            <div class="stat-box success-highlight">
+                <div>預估目前已減重</div>
+                <div class="stat-val" id="weightLossProgress">0.00 kg</div>
+                <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">(根據歷史累積赤字推算)</div>
+            </div>
             <div class="stat-box highlight">
                 <div>距離減去 1kg 目標還差</div>
                 <div class="stat-val" id="targetLeft">7,700 kcal</div>
@@ -599,6 +610,10 @@
             const dayDeficit = (appData.tdee + dateGroups[date].burn) - dateGroups[date].eat;
             if (dayDeficit > 0) totalDeficit += dayDeficit;
         });
+
+        // 核心修改：利用總赤字計算已減少的預估公斤數 (7700 kcal = 1kg)
+        const estimatedWeightLoss = (totalDeficit / 7700).toFixed(2);
+        document.getElementById('weightLossProgress').innerText = `${estimatedWeightLoss} kg`;
 
         const targetLeft = Math.max(0, 7700 - totalDeficit);
         document.getElementById('targetLeft').innerText = targetLeft <= 0 ? "恭喜！已達成減重 1kg 目標！🎉" : `${targetLeft.toLocaleString()} kcal`;
