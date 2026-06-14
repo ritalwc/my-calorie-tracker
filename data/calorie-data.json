@@ -3,6 +3,27 @@
     "tdee": 1750,
     "logs": [
       {
+        "id": 1781477732585,
+        "type": "food",
+        "name": "早餐",
+        "cal": 287,
+        "date": "15/6/2026"
+      },
+      {
+        "id": 1781477385389,
+        "type": "food",
+        "name": "yesterday dinner",
+        "cal": 243,
+        "date": "15/6/2026"
+      },
+      {
+        "id": 1781477376194,
+        "type": "food",
+        "name": "yesterday lunch",
+        "cal": 898,
+        "date": "15/6/2026"
+      },
+      {
         "id": 1781403318324,
         "type": "food",
         "name": "早",
@@ -158,5 +179,5 @@
       }
     ]
   },
-  "lastUpdated": "2026-06-14T02:15:21.522Z"
+  "lastUpdated": "2026-06-14T22:55:44.437Z"
 }
