@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>個人卡路里與減重進度管理</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary: #ff6b81;
@@ -14,6 +15,7 @@
             --card-bg: #ffffff;
             --text: #2f3542;
             --text-light: #747d8c;
+            --info: #17a2b8;
         }
 
         * {
@@ -92,6 +94,9 @@
 
         .btn-reset { background-color: #dc3545; }
         .btn-reset:hover { background-color: #c82333; }
+        
+        .btn-reset-p { background-color: #ff9f43; }
+        .btn-reset-p:hover { background-color: #ee5253; }
 
         .btn-upload { background-color: #6f42c1; }
         .btn-upload:hover { background-color: #5a32a3; }
@@ -156,6 +161,12 @@
             background: var(--secondary);
             color: white;
         }
+        
+        .stat-box.info-highlight {
+            grid-column: span 1;
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+        }
 
         .stat-val {
             font-size: 20px;
@@ -193,7 +204,7 @@
             font-size: 14px;
         }
 
-        input[type="text"], input[type="number"] {
+        input[type="text"], input[type="number"], input[type="date"] {
             width: 100%;
             padding: 10px;
             border: 1px solid #ced4da;
@@ -231,8 +242,9 @@
         }
 
         .log-list {
-            max-height: 300px;
+            max-height: 250px;
             overflow-y: auto;
+            margin-bottom: 20px;
         }
 
         .log-item {
@@ -246,9 +258,8 @@
             border-left: 4px solid var(--primary);
         }
 
-        .log-item.type-exercise {
-            border-left-color: var(--secondary);
-        }
+        .log-item.type-exercise { border-left-color: var(--secondary); }
+        .log-item.type-weight { border-left-color: var(--info); }
 
         .log-info h4 { margin: 0 0 4px 0; font-size: 14px; }
         .log-info span { font-size: 12px; color: var(--text-light); }
@@ -262,12 +273,30 @@
         .log-cal { font-weight: bold; font-size: 15px; }
         .type-food .log-cal { color: #eb4d4b; }
         .type-exercise .log-cal { color: #2ed573; }
+        .type-weight .log-cal { color: var(--info); }
 
         .action-btn {
             background: none;
             border: none;
             cursor: pointer;
             font-size: 14px;
+        }
+
+        /* 新增體重圖表與排版區域 */
+        .weight-section {
+            background: #ffffff;
+            border: 1px solid #e1e8ed;
+            border-radius: 12px;
+            padding: 18px;
+            margin-top: 25px;
+            margin-bottom: 25px;
+        }
+        .weight-form-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr auto auto;
+            gap: 8px;
+            align-items: end;
+            margin-top: 10px;
         }
 
         /* ========== GitHub 同步設定彈窗 ========== */
@@ -369,7 +398,8 @@
     <div class="controls">
         <button class="btn-ctrl btn-import" onclick="triggerLocalImport()">📥 導入資料</button>
         <button class="btn-ctrl btn-export" onclick="exportLocalData()">📤 導出資料</button>
-        <button class="btn-ctrl btn-reset" onclick="resetLocalData()">🔄 重置</button>
+        <button class="btn-ctrl btn-reset-p" onclick="resetLocalData('partial')">🔄 部分重置</button>
+        <button class="btn-ctrl btn-reset" onclick="resetLocalData('full')">💥 全面重置</button>
         <button class="btn-ctrl btn-upload" onclick="uploadToGithub()">☁️ 上傳雲端</button>
         <button class="btn-ctrl btn-download" onclick="downloadFromGithub()">📥 下載雲端</button>
         <button class="btn-ctrl btn-settings" onclick="openGithubModal()">⚙️ 同步設定</button>
@@ -385,6 +415,14 @@
             </div>
         </div>
         <div class="stat-grid">
+            <div class="stat-box info-highlight">
+                <div style="color: #2b6cb0; font-weight: 600;">總瘦身天數</div>
+                <div class="stat-val" id="totalDays" style="color: #2b6cb0;">1 天</div>
+            </div>
+            <div class="stat-box info-highlight">
+                <div style="color: #4a5568; font-weight: 600;">實際/預估對比</div>
+                <div class="stat-val" id="weightCompare" style="font-size:14px; margin-top:8px; color: #4a5568;">實: -- / 預: 0kg</div>
+            </div>
             <div class="stat-box">
                 <div>今日已攝取</div>
                 <div class="stat-val" id="todayEat" style="color: #eb4d4b;">0 kcal</div>
@@ -404,6 +442,29 @@
                 <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">(累積創造 7,700 kcal 赤字即可減重 1kg)</div>
             </div>
         </div>
+    </div>
+
+    <div class="weight-section">
+        <h3 id="weightFormTitle">⚖️ 體重日誌與進度曲線</h3>
+        <input type="hidden" id="editWeightId" value="-1">
+        <div class="weight-form-grid">
+            <div>
+                <label style="font-size:12px;">紀錄日期</label>
+                <input type="date" id="weightDate">
+            </div>
+            <div>
+                <label style="font-size:12px;">體重 (kg)</label>
+                <input type="number" id="weightValue" step="0.1" placeholder="例如: 60.5">
+            </div>
+            <button class="btn-ctrl btn-import" style="padding: 10px 14px;" onclick="saveWeightItem()">儲存</button>
+            <button class="btn-ctrl btn-settings" id="cancelWeightBtn" style="padding: 10px 14px; display:none;" onclick="resetWeightForm()">取消</button>
+        </div>
+        
+        <div style="position: relative; height:240px; width:100%; margin-top:20px;">
+            <canvas id="weightAnalyticsChart"></canvas>
+        </div>
+        
+        <div style="margin-top: 15px; max-height: 120px; overflow-y: auto;" id="weightLogList"></div>
     </div>
 
     <h3 id="formTitle" style="margin-bottom:15px;">新增紀錄</h3>
@@ -443,19 +504,28 @@
 </div>
 
 <script>
-    // 狀態宣告
+    // 擴充狀態宣告，完美包容體重與啟始日
     let appData = {
         tdee: 1750,
-        logs: []
+        logs: [],
+        weightLogs: [], // 格式: { id, date, weight }
+        startDate: new Date().toLocaleDateString() // 首次記錄的開始時間
     };
+
+    let metricsChart = null;
 
     window.onload = function() {
         const local = localStorage.getItem('calorie_tracker_data');
         if (local) {
             appData = JSON.parse(local);
             if(!appData.tdee) appData.tdee = 1750;
+            if(!appData.weightLogs) appData.weightLogs = [];
+            if(!appData.startDate) appData.startDate = new Date().toLocaleDateString();
+        } else {
+            appData.startDate = new Date().toLocaleDateString();
         }
         document.getElementById('tdeeInput').value = appData.tdee;
+        document.getElementById('weightDate').valueAsDate = new Date();
         render();
     };
 
@@ -483,6 +553,7 @@
         }
     }
 
+    /* ==================== 飲食與運動邏輯 ==================== */
     function saveItem() {
         const name = document.getElementById('itemName').value.trim();
         const cal = parseInt(document.getElementById('itemCal').value);
@@ -547,18 +618,86 @@
         document.getElementById('cancelBtn').style.display = 'none';
     }
 
+    /* ==================== 體重控制邏輯 ==================== */
+    function saveWeightItem() {
+        const dateInput = document.getElementById('weightDate').value;
+        const weightInput = parseFloat(document.getElementById('weightValue').value);
+        const editId = parseInt(document.getElementById('editWeightId').value);
+
+        if (!dateInput || isNaN(weightInput)) {
+            alert('請填入正確的日期與體重數據！');
+            return;
+        }
+
+        // 把 HTML date input 轉成與本地一致的字串格式做對齊
+        const formattedDate = new Date(dateInput).toLocaleDateString();
+
+        if (editId === -1) {
+            appData.weightLogs.push({
+                id: Date.now(),
+                date: formattedDate,
+                weight: weightInput
+            });
+        } else {
+            const wItem = appData.weightLogs.find(w => w.id === editId);
+            if (wItem) {
+                wItem.date = formattedDate;
+                wItem.weight = weightInput;
+            }
+        }
+
+        // 依日期排序體重紀錄
+        appData.weightLogs.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        saveData();
+        resetWeightForm();
+        render();
+    }
+
+    function editWeightItem(id) {
+        const wItem = appData.weightLogs.find(w => w.id === id);
+        if (!wItem) return;
+
+        document.getElementById('weightFormTitle').innerText = '✏️ 修改體重紀錄';
+        document.getElementById('editWeightId').value = wItem.id;
+        document.getElementById('weightValue').value = wItem.weight;
+
+        // 反向將 localDateString 轉回 date input 可讀格式
+        const parts = wItem.date.split('/');
+        if(parts.length === 3) {
+            const d = new Date(parts[0], parts[1]-1, parts[2]);
+            document.getElementById('weightDate').valueAsDate = d;
+        }
+
+        document.getElementById('cancelWeightBtn').style.display = 'inline-block';
+    }
+
+    function deleteWeightItem(id) {
+        if (confirm('確定要刪除此體重數據嗎？')) {
+            appData.weightLogs = appData.weightLogs.filter(w => w.id !== id);
+            saveData();
+            render();
+        }
+    }
+
+    function resetWeightForm() {
+        document.getElementById('weightFormTitle').innerText = '⚖️ 體重日誌與進度曲線';
+        document.getElementById('editWeightId').value = "-1";
+        document.getElementById('weightValue').value = "";
+        document.getElementById('weightDate').valueAsDate = new Date();
+        document.getElementById('cancelWeightBtn').style.display = 'none';
+    }
+
+    /* ==================== 核心渲染引擎 (全面整合) ==================== */
     function render() {
         const logList = document.getElementById('logList');
         logList.innerHTML = '';
 
         let todayEat = 0;
         let todayExtraBurn = 0;
-
-        // 取得今天的日期字串用作比對
         const todayStr = new Date().toLocaleDateString();
 
         appData.logs.forEach((item, index) => {
-            // 只有當天日期的紀錄才會加入今日看板計算
             if (item.date === todayStr) {
                 if (item.type === 'food') todayEat += item.cal;
                 else todayExtraBurn += item.cal;
@@ -580,23 +719,19 @@
             logList.appendChild(itemEl);
         });
 
-        // 計算今日剩餘卡路里 (TDEE + 運動消耗 - 飲食攝取)
         const todayRemaining = (appData.tdee + todayExtraBurn) - todayEat;
-
-        // 更新至畫面上
         document.getElementById('todayEat').innerText = `${todayEat} kcal`;
         
         const remainingEl = document.getElementById('todayRemaining');
         remainingEl.innerText = `${todayRemaining} kcal`;
         
-        // 顏色警示：若剩餘卡路里變負數（即爆卡了），變紅色；否則保持綠色
         if (todayRemaining < 0) {
-            remainingEl.style.color = '#ff4d4d'; // 超標變紅
+            remainingEl.style.color = '#ff4d4d';
         } else {
-            remainingEl.style.color = '#2ed573'; // 還有額度留綠
+            remainingEl.style.color = '#2ed573';
         }
 
-        /* ==================== 計算累積赤字進度 ==================== */
+        /* ==================== 赤字與天數計算 ==================== */
         let totalDeficit = 0;
         const dateGroups = {};
         appData.logs.forEach(item => {
@@ -610,24 +745,152 @@
             if (dayDeficit > 0) totalDeficit += dayDeficit;
         });
 
-        // 利用總赤字計算已減少的預估公斤數 (7700 kcal = 1kg)
         const estimatedWeightLoss = (totalDeficit / 7700).toFixed(2);
         document.getElementById('weightLossProgress').innerText = `${estimatedWeightLoss} kg`;
 
-        /* ==================== 修正：動態無限循環計算下一公斤 ==================== */
-        // 計算目前已經完整達成了幾個 7700 kcal (無條件捨去取得整數)
+        // 計算總瘦身天數
+        const date1 = new Date(appData.startDate);
+        const date2 = new Date(new Date().toLocaleDateString());
+        const diffTime = Math.abs(date2 - date1);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+        document.getElementById('totalDays').innerText = `${diffDays} 天`;
+
+        // 動態循環目標下一公斤計算
         const completedKgs = Math.floor(totalDeficit / 7700);
-        // 下一個要挑戰的目標公斤數
         const nextTargetKg = completedKgs + 1;
-        // 計算在這個新階段中，還剩下多少卡路里赤字需要創造
         const currentStageDeficitUsed = totalDeficit % 7700;
         const targetLeft = 7700 - currentStageDeficitUsed;
 
-        // 動態更改標題與卡路里數值，實現無限自動累加重新計算
         document.getElementById('targetTitle').innerText = `距離減去 ${nextTargetKg}kg 目標還差`;
         document.getElementById('targetLeft').innerText = `${targetLeft.toLocaleString()} kcal`;
-        
         document.getElementById('logCount').innerText = `共 ${appData.logs.length} 項紀錄`;
+
+        /* ==================== 體重明細與聯動對比 ==================== */
+        const wListEl = document.getElementById('weightLogList');
+        wListEl.innerHTML = '';
+        
+        let actualLossText = "--";
+        if (appData.weightLogs.length >= 1) {
+            const firstW = appData.weightLogs[0].weight;
+            const latestW = appData.weightLogs[appData.weightLogs.length - 1].weight;
+            const diffW = (firstW - latestW).toFixed(2);
+            actualLossText = `${diffW}kg`;
+            
+            appData.weightLogs.forEach(w => {
+                const wEl = document.createElement('div');
+                wEl.className = 'log-item type-weight';
+                wEl.style.padding = '6px 12px';
+                wEl.style.fontSize = '13px';
+                wEl.innerHTML = `
+                    <div class="log-info">
+                        <strong>${w.weight} kg</strong> <span>(${w.date})</span>
+                    </div>
+                    <div class="log-actions">
+                        <button class="action-btn" onclick="editWeightItem(${w.id})">✏️</button>
+                        <button class="action-btn" onclick="deleteWeightItem(${w.id})">❌</button>
+                    </div>
+                `;
+                wListEl.appendChild(wEl);
+            });
+        }
+        document.getElementById('weightCompare').innerText = `實: ${actualLossText} / 預: ${estimatedWeightLoss}kg`;
+
+        // 調用圖表引擎
+        generateChart(totalDeficit);
+    }
+
+    /* ==================== Chart.js 雙曲線引擎 ==================== */
+    function generateChart(totalDeficit) {
+        const ctx = document.getElementById('weightAnalyticsChart').getContext('2d');
+        
+        if (metricsChart) {
+            metricsChart.destroy();
+        }
+
+        if (appData.weightLogs.length === 0) {
+            // 無體重數據時繪製提示空圖表
+            metricsChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: ['無數據'], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { title: { display: true, text: '請在上方輸入體重數據以生成改變曲線' } }
+                }
+            });
+            return;
+        }
+
+        // 提取實際體重歷史
+        const labels = appData.weightLogs.map(w => w.date);
+        const actualWeights = appData.weightLogs.map(w => w.weight);
+        
+        // 聰明聯動：計算自初始體重起，科學赤字應該達到的預估體重
+        const initialWeight = actualWeights[0];
+        let runningDeficit = 0;
+        
+        // 算出每個體重記錄日期的累計赤字
+        const predictedWeights = appData.weightLogs.map(w => {
+            let dayDeficitAccum = 0;
+            const dateGroups = {};
+            
+            appData.logs.forEach(log => {
+                if (new Date(log.date) <= new Date(w.date)) {
+                    if (!dateGroups[log.date]) dateGroups[log.date] = { eat: 0, burn: 0 };
+                    if (log.type === 'food') dateGroups[log.date].eat += log.cal;
+                    else dateGroups[log.date].burn += log.cal;
+                }
+            });
+            
+            Object.keys(dateGroups).forEach(d => {
+                const dayDeficit = (appData.tdee + dateGroups[d].burn) - dateGroups[d].eat;
+                if (dayDeficit > 0) dayDeficitAccum += dayDeficit;
+            });
+
+            const currentPredictedLoss = dayDeficitAccum / 7700;
+            return (initialWeight - currentPredictedLoss).toFixed(2);
+        });
+
+        metricsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '實際體重變化 (kg)',
+                        data: actualWeights,
+                        borderColor: '#17a2b8',
+                        backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: '科學熱量赤字預估線 (kg)',
+                        data: predictedWeights,
+                        borderColor: '#ff6b81',
+                        borderDash: [5, 5],
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: { display: true, text: '公斤 (kg)', font: { size: 11 } }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+                }
+            }
+        });
     }
 
     function escapeHtml(text) {
@@ -636,14 +899,42 @@
         return div.innerHTML;
     }
 
-    /* ==================== 導入 / 導出 / 重置邏輯 ==================== */
+    /* ==================== 雙重重置核心邏輯 ==================== */
+    function resetLocalData(mode) {
+        if (mode === 'full') {
+            if (confirm('⚠️ 警告：這會徹底清除所有資料（包含所有卡路里、體重歷史記錄、開始日期）。此動作無法復原！確定嗎？')) {
+                appData = {
+                    tdee: 1750,
+                    logs: [],
+                    weightLogs: [],
+                    startDate: new Date().toLocaleDateString()
+                };
+                saveData();
+                resetForm();
+                resetWeightForm();
+                render();
+                document.getElementById('tdeeInput').value = 1750;
+                alert('所有數據已全面清空並重置！');
+            }
+        } else if (mode === 'partial') {
+            if (confirm('🔄 確定要清除「飲食攝取與額外運動」紀錄嗎？\n\n此操作將為你保留【體重紀錄、開始日期、累計天數】，只清空每日吃喝明細。')) {
+                appData.logs = [];
+                saveData();
+                resetForm();
+                render();
+                alert('日常卡路里明細已重置，體重進度已為你妥善保留！');
+            }
+        }
+    }
+
+    /* ==================== 導入 / 導出邏輯 ==================== */
     function exportLocalData() {
         const data = { appData: appData, exportDate: new Date().toISOString() };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `卡路里紀錄備份_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `卡路里與體重紀錄備份_${new Date().toISOString().split('T')[0]}.json`;
         a.click();
         URL.revokeObjectURL(url);
     }
@@ -658,11 +949,13 @@
             try {
                 const data = JSON.parse(e.target.result);
                 if (confirm('導入此備份檔案將會覆蓋本地的所有數據，確定嗎？')) {
-                    appData = data.appData || { tdee: 1750, logs: [] };
+                    appData = data.appData || { tdee: 1750, logs: [], weightLogs: [], startDate: new Date().toLocaleDateString() };
+                    if(!appData.weightLogs) appData.weightLogs = [];
+                    if(!appData.startDate) appData.startDate = new Date().toLocaleDateString();
                     saveData();
                     render();
                     document.getElementById('tdeeInput').value = appData.tdee;
-                    alert('資料導入成功！');
+                    alert('資料完美導入成功！');
                 }
             } catch (error) {
                 alert('檔案格式解析失敗，請選擇正確的 JSON 備份檔！');
@@ -672,17 +965,7 @@
         event.target.value = '';
     }
 
-    function resetLocalData() {
-        if (confirm('確定要清除所有卡路里紀錄嗎？此操作無法恢復！')) {
-            appData = { tdee: 1750, logs: [] };
-            saveData();
-            render();
-            document.getElementById('tdeeInput').value = 1750;
-            alert('本地數據已成功清空！');
-        }
-    }
-
-    /* ==================== GitHub 同步核心代碼 ==================== */
+    /* ==================== GitHub 同步模組 (完整保留) ==================== */
     function openGithubModal() {
         document.getElementById('githubModal').classList.add('active');
         const settings = getGithubSettings();
@@ -736,7 +1019,7 @@
                 if (getResponse.ok) { const fileData = await getResponse.json(); sha = fileData.sha; }
             } catch (e) {}
 
-            const body = { message: `Update Calorie Data - ${new Date().toLocaleString('zh-HK')}`, content: content };
+            const body = { message: `Update Calorie and Weight Data - ${new Date().toLocaleString('zh-HK')}`, content: content };
             if (sha) body.sha = sha;
 
             const response = await fetch(`https://api.github.com/repos/${settings.repo}/contents/${settings.path}`, {
@@ -745,7 +1028,7 @@
                 body: JSON.stringify(body)
             });
 
-            if (response.ok) alert('✅ 卡路里數據已成功備份上傳至 GitHub 雲端！');
+            if (response.ok) alert('✅ 卡路里與體重數據已成功備份上傳至 GitHub 雲端！');
             else { const err = await response.json(); throw new Error(err.message || '上傳失敗'); }
         } catch (error) { alert('❌ 上傳雲端失敗：' + error.message); }
     }
@@ -773,7 +1056,9 @@
             const data = JSON.parse(content);
 
             if (confirm('確定要從 GitHub 雲端拉取歷史進度並「覆蓋本地所有紀錄」嗎？')) {
-                appData = data.appData || { tdee: 1750, logs: [] };
+                appData = data.appData || { tdee: 1750, logs: [], weightLogs: [], startDate: new Date().toLocaleDateString() };
+                if(!appData.weightLogs) appData.weightLogs = [];
+                if(!appData.startDate) appData.startDate = new Date().toLocaleDateString();
                 saveData();
                 render();
                 document.getElementById('tdeeInput').value = appData.tdee;
