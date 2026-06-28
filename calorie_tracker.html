@@ -282,7 +282,7 @@
             font-size: 14px;
         }
 
-        /* 新增體重圖表與排版區域 */
+        /* 體重區塊 */
         .weight-section {
             background: #ffffff;
             border: 1px solid #e1e8ed;
@@ -504,12 +504,34 @@
 </div>
 
 <script>
-    // 擴充狀態宣告，完美包容體重與啟始日
+    // 嚴格標準化 YYYY-MM-DD 函數，防止解析出 NaN 
+    function getISODateString(dateObj = new Date()) {
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function safeParseDate(dateStr) {
+        if (!dateStr) return new Date();
+        // 兼容舊資料格式
+        if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                // 處理 YYYY/MM/DD 或 MM/DD/YYYY
+                if (parts[0].length === 4) return new Date(parts[0], parts[1] - 1, parts[2]);
+                else return new Date(parts[2], parts[0] - 1, parts[1]);
+            }
+        }
+        const d = new Date(dateStr);
+        return isNaN(d.getTime()) ? new Date() : d;
+    }
+
     let appData = {
         tdee: 1750,
         logs: [],
-        weightLogs: [], // 格式: { id, date, weight }
-        startDate: new Date().toLocaleDateString() // 首次記錄的開始時間
+        weightLogs: [], 
+        startDate: getISODateString() 
     };
 
     let metricsChart = null;
@@ -517,15 +539,25 @@
     window.onload = function() {
         const local = localStorage.getItem('calorie_tracker_data');
         if (local) {
-            appData = JSON.parse(local);
-            if(!appData.tdee) appData.tdee = 1750;
-            if(!appData.weightLogs) appData.weightLogs = [];
-            if(!appData.startDate) appData.startDate = new Date().toLocaleDateString();
-        } else {
-            appData.startDate = new Date().toLocaleDateString();
+            try {
+                const parsed = JSON.parse(local);
+                if (parsed && typeof parsed === 'object') {
+                    appData = parsed;
+                }
+            } catch(e) { console.error(e); }
         }
+        
+        // 補齊與格式化初始結構，防止舊格式損壞天數
+        if (!appData.tdee) appData.tdee = 1750;
+        if (!appData.logs) appData.logs = [];
+        if (!appData.weightLogs) appData.weightLogs = [];
+        
+        if (!appData.startDate || appData.startDate.includes('/')) {
+            appData.startDate = getISODateString(safeParseDate(appData.startDate));
+        }
+
         document.getElementById('tdeeInput').value = appData.tdee;
-        document.getElementById('weightDate').valueAsDate = new Date();
+        document.getElementById('weightDate').value = getISODateString();
         render();
     };
 
@@ -571,7 +603,7 @@
                 type: type,
                 name: name,
                 cal: cal,
-                date: new Date().toLocaleDateString()
+                date: getISODateString()
             });
         } else {
             appData.logs[editIndex].name = name;
@@ -629,24 +661,20 @@
             return;
         }
 
-        // 把 HTML date input 轉成與本地一致的字串格式做對齊
-        const formattedDate = new Date(dateInput).toLocaleDateString();
-
         if (editId === -1) {
             appData.weightLogs.push({
                 id: Date.now(),
-                date: formattedDate,
+                date: dateInput,
                 weight: weightInput
             });
         } else {
             const wItem = appData.weightLogs.find(w => w.id === editId);
             if (wItem) {
-                wItem.date = formattedDate;
+                wItem.date = dateInput;
                 wItem.weight = weightInput;
             }
         }
 
-        // 依日期排序體重紀錄
         appData.weightLogs.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         saveData();
@@ -661,13 +689,7 @@
         document.getElementById('weightFormTitle').innerText = '✏️ 修改體重紀錄';
         document.getElementById('editWeightId').value = wItem.id;
         document.getElementById('weightValue').value = wItem.weight;
-
-        // 反向將 localDateString 轉回 date input 可讀格式
-        const parts = wItem.date.split('/');
-        if(parts.length === 3) {
-            const d = new Date(parts[0], parts[1]-1, parts[2]);
-            document.getElementById('weightDate').valueAsDate = d;
-        }
+        document.getElementById('weightDate').value = wItem.date;
 
         document.getElementById('cancelWeightBtn').style.display = 'inline-block';
     }
@@ -684,21 +706,24 @@
         document.getElementById('weightFormTitle').innerText = '⚖️ 體重日誌與進度曲線';
         document.getElementById('editWeightId').value = "-1";
         document.getElementById('weightValue').value = "";
-        document.getElementById('weightDate').valueAsDate = new Date();
+        document.getElementById('weightDate').value = getISODateString();
         document.getElementById('cancelWeightBtn').style.display = 'none';
     }
 
-    /* ==================== 核心渲染引擎 (全面整合) ==================== */
+    /* ==================== 核心渲染引擎 ==================== */
     function render() {
         const logList = document.getElementById('logList');
         logList.innerHTML = '';
 
         let todayEat = 0;
         let todayExtraBurn = 0;
-        const todayStr = new Date().toLocaleDateString();
+        const todayStr = getISODateString();
 
         appData.logs.forEach((item, index) => {
-            if (item.date === todayStr) {
+            // 標準化比對格式
+            const itemDateStr = item.date.includes('/') ? getISODateString(safeParseDate(item.date)) : item.date;
+            
+            if (itemDateStr === todayStr) {
                 if (item.type === 'food') todayEat += item.cal;
                 else todayExtraBurn += item.cal;
             }
@@ -708,7 +733,7 @@
             itemEl.innerHTML = `
                 <div class="log-info">
                     <h4>${escapeHtml(item.name)}</h4>
-                    <span>${item.date} · ${item.type === 'food' ? '飲食' : '運動'}</span>
+                    <span>${itemDateStr} · ${item.type === 'food' ? '飲食' : '運動'}</span>
                 </div>
                 <div class="log-actions">
                     <span class="log-cal">${item.type === 'food' ? '+' : '-'}${item.cal} kcal</span>
@@ -724,20 +749,16 @@
         
         const remainingEl = document.getElementById('todayRemaining');
         remainingEl.innerText = `${todayRemaining} kcal`;
-        
-        if (todayRemaining < 0) {
-            remainingEl.style.color = '#ff4d4d';
-        } else {
-            remainingEl.style.color = '#2ed573';
-        }
+        remainingEl.style.color = todayRemaining < 0 ? '#ff4d4d' : '#2ed573';
 
-        /* ==================== 赤字與天數計算 ==================== */
+        /* ==================== 赤字與天數精準計算 (修復 NaN) ==================== */
         let totalDeficit = 0;
         const dateGroups = {};
         appData.logs.forEach(item => {
-            if (!dateGroups[item.date]) dateGroups[item.date] = { eat: 0, burn: 0 };
-            if (item.type === 'food') dateGroups[item.date].eat += item.cal;
-            else dateGroups[item.date].burn += item.cal;
+            const dStr = item.date.includes('/') ? getISODateString(safeParseDate(item.date)) : item.date;
+            if (!dateGroups[dStr]) dateGroups[dStr] = { eat: 0, burn: 0 };
+            if (item.type === 'food') dateGroups[dStr].eat += item.cal;
+            else dateGroups[dStr].burn += item.cal;
         });
 
         Object.keys(dateGroups).forEach(date => {
@@ -748,14 +769,16 @@
         const estimatedWeightLoss = (totalDeficit / 7700).toFixed(2);
         document.getElementById('weightLossProgress').innerText = `${estimatedWeightLoss} kg`;
 
-        // 計算總瘦身天數
-        const date1 = new Date(appData.startDate);
-        const date2 = new Date(new Date().toLocaleDateString());
-        const diffTime = Math.abs(date2 - date1);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+        // 修正後的精準總天數算法
+        const d1 = safeParseDate(appData.startDate);
+        const d2 = safeParseDate(todayStr);
+        // 清除時分秒誤差
+        d1.setHours(0,0,0,0);
+        d2.setHours(0,0,0,0);
+        const diffTime = Math.abs(d2 - d1);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; 
         document.getElementById('totalDays').innerText = `${diffDays} 天`;
 
-        // 動態循環目標下一公斤計算
         const completedKgs = Math.floor(totalDeficit / 7700);
         const nextTargetKg = completedKgs + 1;
         const currentStageDeficitUsed = totalDeficit % 7700;
@@ -795,20 +818,15 @@
         }
         document.getElementById('weightCompare').innerText = `實: ${actualLossText} / 預: ${estimatedWeightLoss}kg`;
 
-        // 調用圖表引擎
-        generateChart(totalDeficit);
+        generateChart();
     }
 
     /* ==================== Chart.js 雙曲線引擎 ==================== */
-    function generateChart(totalDeficit) {
+    function generateChart() {
         const ctx = document.getElementById('weightAnalyticsChart').getContext('2d');
-        
-        if (metricsChart) {
-            metricsChart.destroy();
-        }
+        if (metricsChart) metricsChart.destroy();
 
         if (appData.weightLogs.length === 0) {
-            // 無體重數據時繪製提示空圖表
             metricsChart = new Chart(ctx, {
                 type: 'line',
                 data: { labels: ['無數據'], datasets: [] },
@@ -821,24 +839,21 @@
             return;
         }
 
-        // 提取實際體重歷史
         const labels = appData.weightLogs.map(w => w.date);
         const actualWeights = appData.weightLogs.map(w => w.weight);
-        
-        // 聰明聯動：計算自初始體重起，科學赤字應該達到的預估體重
         const initialWeight = actualWeights[0];
-        let runningDeficit = 0;
         
-        // 算出每個體重記錄日期的累計赤字
+        // 科學赤字聯動預估線
         const predictedWeights = appData.weightLogs.map(w => {
             let dayDeficitAccum = 0;
             const dateGroups = {};
             
             appData.logs.forEach(log => {
-                if (new Date(log.date) <= new Date(w.date)) {
-                    if (!dateGroups[log.date]) dateGroups[log.date] = { eat: 0, burn: 0 };
-                    if (log.type === 'food') dateGroups[log.date].eat += log.cal;
-                    else dateGroups[log.date].burn += log.cal;
+                const logD = log.date.includes('/') ? getISODateString(safeParseDate(log.date)) : log.date;
+                if (logD <= w.date) {
+                    if (!dateGroups[logD]) dateGroups[logD] = { eat: 0, burn: 0 };
+                    if (log.type === 'food') dateGroups[logD].eat += log.cal;
+                    else dateGroups[logD].burn += log.cal;
                 }
             });
             
@@ -847,8 +862,7 @@
                 if (dayDeficit > 0) dayDeficitAccum += dayDeficit;
             });
 
-            const currentPredictedLoss = dayDeficitAccum / 7700;
-            return (initialWeight - currentPredictedLoss).toFixed(2);
+            return (initialWeight - (dayDeficitAccum / 7700)).toFixed(2);
         });
 
         metricsChart = new Chart(ctx, {
@@ -862,8 +876,7 @@
                         borderColor: '#17a2b8',
                         backgroundColor: 'rgba(23, 162, 184, 0.1)',
                         borderWidth: 3,
-                        tension: 0.1,
-                        fill: false
+                        tension: 0.1
                     },
                     {
                         label: '科學熱量赤字預估線 (kg)',
@@ -872,23 +885,15 @@
                         borderDash: [5, 5],
                         backgroundColor: 'transparent',
                         borderWidth: 2,
-                        tension: 0.1,
-                        fill: false
+                        tension: 0.1
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: false,
-                        title: { display: true, text: '公斤 (kg)', font: { size: 11 } }
-                    }
-                },
-                plugins: {
-                    legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
-                }
+                scales: { y: { beginAtZero: false } },
+                plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } }
             }
         });
     }
@@ -907,7 +912,7 @@
                     tdee: 1750,
                     logs: [],
                     weightLogs: [],
-                    startDate: new Date().toLocaleDateString()
+                    startDate: getISODateString()
                 };
                 saveData();
                 resetForm();
@@ -934,7 +939,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `卡路里與體重紀錄備份_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `卡路里與體重紀錄備份_${getISODateString()}.json`;
         a.click();
         URL.revokeObjectURL(url);
     }
@@ -949,9 +954,9 @@
             try {
                 const data = JSON.parse(e.target.result);
                 if (confirm('導入此備份檔案將會覆蓋本地的所有數據，確定嗎？')) {
-                    appData = data.appData || { tdee: 1750, logs: [], weightLogs: [], startDate: new Date().toLocaleDateString() };
+                    appData = data.appData || { tdee: 1750, logs: [], weightLogs: [], startDate: getISODateString() };
                     if(!appData.weightLogs) appData.weightLogs = [];
-                    if(!appData.startDate) appData.startDate = new Date().toLocaleDateString();
+                    if(!appData.startDate) appData.startDate = getISODateString();
                     saveData();
                     render();
                     document.getElementById('tdeeInput').value = appData.tdee;
@@ -1056,9 +1061,9 @@
             const data = JSON.parse(content);
 
             if (confirm('確定要從 GitHub 雲端拉取歷史進度並「覆蓋本地所有紀錄」嗎？')) {
-                appData = data.appData || { tdee: 1750, logs: [], weightLogs: [], startDate: new Date().toLocaleDateString() };
+                appData = data.appData || { tdee: 1750, logs: [], weightLogs: [], startDate: getISODateString() };
                 if(!appData.weightLogs) appData.weightLogs = [];
-                if(!appData.startDate) appData.startDate = new Date().toLocaleDateString();
+                if(!appData.startDate) appData.startDate = getISODateString();
                 saveData();
                 render();
                 document.getElementById('tdeeInput').value = appData.tdee;
