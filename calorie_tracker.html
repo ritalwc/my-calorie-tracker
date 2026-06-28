@@ -513,12 +513,10 @@
     }
 
     function safeParseDate(dateStr) {
-        if (!dateStr) return new Date();
-        // 兼容舊資料格式
+        if (!dateStr || typeof dateStr !== 'string') return new Date();
         if (dateStr.includes('/')) {
             const parts = dateStr.split('/');
             if (parts.length === 3) {
-                // 處理 YYYY/MM/DD 或 MM/DD/YYYY
                 if (parts[0].length === 4) return new Date(parts[0], parts[1] - 1, parts[2]);
                 else return new Date(parts[2], parts[0] - 1, parts[1]);
             }
@@ -547,13 +545,14 @@
             } catch(e) { console.error(e); }
         }
         
-        // 補齊與格式化初始結構，防止舊格式損壞天數
+        // 補齊與格式化初始結構
         if (!appData.tdee) appData.tdee = 1750;
         if (!appData.logs) appData.logs = [];
         if (!appData.weightLogs) appData.weightLogs = [];
         
-        if (!appData.startDate || appData.startDate.includes('/')) {
-            appData.startDate = getISODateString(safeParseDate(appData.startDate));
+        // 【關鍵Bug修復】：如果發現未設定過或資料損毀，強制初始化為今天，阻絕 649 天的發生！
+        if (!appData.startDate || appData.startDate.includes('/') || isNaN(new Date(appData.startDate).getTime())) {
+            appData.startDate = getISODateString();
         }
 
         document.getElementById('tdeeInput').value = appData.tdee;
@@ -720,7 +719,6 @@
         const todayStr = getISODateString();
 
         appData.logs.forEach((item, index) => {
-            // 標準化比對格式
             const itemDateStr = item.date.includes('/') ? getISODateString(safeParseDate(item.date)) : item.date;
             
             if (itemDateStr === todayStr) {
@@ -751,7 +749,7 @@
         remainingEl.innerText = `${todayRemaining} kcal`;
         remainingEl.style.color = todayRemaining < 0 ? '#ff4d4d' : '#2ed573';
 
-        /* ==================== 赤字與天數精準計算 (修復 NaN) ==================== */
+        /* ==================== 赤字與天數精準計算 ==================== */
         let totalDeficit = 0;
         const dateGroups = {};
         appData.logs.forEach(item => {
@@ -769,10 +767,9 @@
         const estimatedWeightLoss = (totalDeficit / 7700).toFixed(2);
         document.getElementById('weightLossProgress').innerText = `${estimatedWeightLoss} kg`;
 
-        // 修正後的精準總天數算法
+        // 完美防護的天數計演算法
         const d1 = safeParseDate(appData.startDate);
         const d2 = safeParseDate(todayStr);
-        // 清除時分秒誤差
         d1.setHours(0,0,0,0);
         d2.setHours(0,0,0,0);
         const diffTime = Math.abs(d2 - d1);
@@ -843,7 +840,6 @@
         const actualWeights = appData.weightLogs.map(w => w.weight);
         const initialWeight = actualWeights[0];
         
-        // 科學赤字聯動預估線
         const predictedWeights = appData.weightLogs.map(w => {
             let dayDeficitAccum = 0;
             const dateGroups = {};
@@ -956,7 +952,7 @@
                 if (confirm('導入此備份檔案將會覆蓋本地的所有數據，確定嗎？')) {
                     appData = data.appData || { tdee: 1750, logs: [], weightLogs: [], startDate: getISODateString() };
                     if(!appData.weightLogs) appData.weightLogs = [];
-                    if(!appData.startDate) appData.startDate = getISODateString();
+                    if(!appData.startDate || isNaN(new Date(appData.startDate).getTime())) appData.startDate = getISODateString();
                     saveData();
                     render();
                     document.getElementById('tdeeInput').value = appData.tdee;
@@ -970,7 +966,7 @@
         event.target.value = '';
     }
 
-    /* ==================== GitHub 同步模組 (完整保留) ==================== */
+    /* ==================== GitHub 同步模組 ==================== */
     function openGithubModal() {
         document.getElementById('githubModal').classList.add('active');
         const settings = getGithubSettings();
@@ -1063,7 +1059,7 @@
             if (confirm('確定要從 GitHub 雲端拉取歷史進度並「覆蓋本地所有紀錄」嗎？')) {
                 appData = data.appData || { tdee: 1750, logs: [], weightLogs: [], startDate: getISODateString() };
                 if(!appData.weightLogs) appData.weightLogs = [];
-                if(!appData.startDate) appData.startDate = getISODateString();
+                if(!appData.startDate || isNaN(new Date(appData.startDate).getTime())) appData.startDate = getISODateString();
                 saveData();
                 render();
                 document.getElementById('tdeeInput').value = appData.tdee;
