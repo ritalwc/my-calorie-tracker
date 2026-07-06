@@ -471,6 +471,11 @@
     <input type="hidden" id="editIndex" value="-1">
     
     <div class="form-group">
+        <label>紀錄日期</label>
+        <input type="date" id="itemDate">
+    </div>
+
+    <div class="form-group">
         <label>項目類別</label>
         <div class="radio-group">
             <label class="radio-label">
@@ -557,6 +562,7 @@
 
         document.getElementById('tdeeInput').value = appData.tdee;
         document.getElementById('weightDate').value = getISODateString();
+        document.getElementById('itemDate').value = getISODateString();
         render();
     };
 
@@ -589,10 +595,11 @@
         const name = document.getElementById('itemName').value.trim();
         const cal = parseInt(document.getElementById('itemCal').value);
         const type = document.querySelector('input[name="itemType"]:checked').value;
+        const date = document.getElementById('itemDate').value;
         const editIndex = parseInt(document.getElementById('editIndex').value);
 
-        if (!name || !cal) {
-            alert('請完整輸入名稱與卡路里！');
+        if (!name || isNaN(cal) || !date) {
+            alert('請完整輸入名稱、卡路里與日期！');
             return;
         }
 
@@ -602,13 +609,20 @@
                 type: type,
                 name: name,
                 cal: cal,
-                date: getISODateString()
+                date: date
             });
         } else {
             appData.logs[editIndex].name = name;
             appData.logs[editIndex].cal = cal;
             appData.logs[editIndex].type = type;
+            appData.logs[editIndex].date = date;
         }
+
+        appData.logs.sort((a, b) => {
+            const dateA = a.date.includes('/') ? safeParseDate(a.date) : new Date(a.date);
+            const dateB = b.date.includes('/') ? safeParseDate(b.date) : new Date(b.date);
+            return dateB - dateA;
+        });
 
         saveData();
         resetForm();
@@ -630,6 +644,12 @@
         document.getElementById('itemName').value = item.name;
         document.getElementById('itemCal').value = item.cal;
         
+        let dateVal = item.date;
+        if (dateVal.includes('/')) {
+            dateVal = getISODateString(safeParseDate(dateVal));
+        }
+        document.getElementById('itemDate').value = dateVal;
+        
         const radios = document.getElementsByName('itemType');
         for (let r of radios) {
             if (r.value === item.type) r.checked = true;
@@ -645,6 +665,7 @@
         document.getElementById('editIndex').value = "-1";
         document.getElementById('itemName').value = "";
         document.getElementById('itemCal').value = "";
+        document.getElementById('itemDate').value = getISODateString();
         document.getElementById('submitBtn').innerText = '加入紀錄';
         document.getElementById('cancelBtn').style.display = 'none';
     }
