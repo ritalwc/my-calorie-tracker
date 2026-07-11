@@ -420,7 +420,7 @@
                 <div class="stat-val" id="totalDays" style="color: #2b6cb0;">1 天</div>
             </div>
             <div class="stat-box info-highlight">
-                <div style="color: #4a5568; font-weight: 600;">實際/預估對比</div>
+                <div style="color: #4a5568; font-weight: 600;">實際/預估對比 (上次紀錄後)</div>
                 <div class="stat-val" id="weightCompare" style="font-size:14px; margin-top:8px; color: #4a5568;">實: -- / 預: 0kg</div>
             </div>
             <div class="stat-box">
@@ -434,12 +434,12 @@
             <div class="stat-box success-highlight">
                 <div>預估目前已減重</div>
                 <div class="stat-val" id="weightLossProgress">0.00 kg</div>
-                <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">(根據歷史累積赤字推算)</div>
+                <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">(自上次量體重後的累積赤字)</div>
             </div>
             <div class="stat-box highlight">
                 <div id="targetTitle">距離減去 1kg 目標還差</div>
                 <div class="stat-val" id="targetLeft">7,700 kcal</div>
-                <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">(累積創造 7,700 kcal 赤字即可減重 1kg)</div>
+                <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">(歷史累積創造 7,700 kcal 赤字即減1kg)</div>
             </div>
         </div>
     </div>
@@ -509,7 +509,6 @@
 </div>
 
 <script>
-    // 嚴格標準化 YYYY-MM-DD 函數，防止解析出 NaN 
     function getISODateString(dateObj = new Date()) {
         const year = dateObj.getFullYear();
         const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -550,12 +549,10 @@
             } catch(e) { console.error(e); }
         }
         
-        // 補齊與格式化初始結構
         if (!appData.tdee) appData.tdee = 1750;
         if (!appData.logs) appData.logs = [];
         if (!appData.weightLogs) appData.weightLogs = [];
         
-        // 【關鍵Bug修復】：如果發現未設定過或資料損毀，強制初始化為今天，阻絕 649 天的發生！
         if (!appData.startDate || appData.startDate.includes('/') || isNaN(new Date(appData.startDate).getTime())) {
             appData.startDate = getISODateString();
         }
@@ -770,8 +767,8 @@
         remainingEl.innerText = `${todayRemaining} kcal`;
         remainingEl.style.color = todayRemaining < 0 ? '#ff4d4d' : '#2ed573';
 
-        /* ==================== 赤字與天數精準計算 ==================== */
-        let totalDeficit = 0;
+        /* ==================== 天數與目標計算 (保留舊有歷史累積) ==================== */
+        let totalDeficit = 0; // 歷史總累積，給 Target Left 計算用
         const dateGroups = {};
         appData.logs.forEach(item => {
             const dStr = item.date.includes('/') ? getISODateString(safeParseDate(item.date)) : item.date;
@@ -785,10 +782,6 @@
             if (dayDeficit > 0) totalDeficit += dayDeficit;
         });
 
-        const estimatedWeightLoss = (totalDeficit / 7700).toFixed(2);
-        document.getElementById('weightLossProgress').innerText = `${estimatedWeightLoss} kg`;
-
-        // 完美防護的天數計演算法
         const d1 = safeParseDate(appData.startDate);
         const d2 = safeParseDate(todayStr);
         d1.setHours(0,0,0,0);
@@ -806,40 +799,77 @@
         document.getElementById('targetLeft').innerText = `${targetLeft.toLocaleString()} kcal`;
         document.getElementById('logCount').innerText = `共 ${appData.logs.length} 項紀錄`;
 
-        /* ==================== 體重明細與聯動對比 ==================== */
+        /* ==================== 歸零重置：只算「自上次體重後」的累積赤字 ==================== */
+        let recentDeficit = 0;
+        let latestWeightDate = "1970-01-01";
+        if (appData.weightLogs.length > 0) {
+            latestWeightDate = appData.weightLogs[appData.weightLogs.length - 1].date;
+        }
+
+        Object.keys(dateGroups).forEach(date => {
+            if (date > latestWeightDate) {
+                const dayDeficit = (appData.tdee + dateGroups[date].burn) - dateGroups[date].eat;
+                if (dayDeficit > 0) recentDeficit += dayDeficit;
+            }
+        });
+
+        const estimatedWeightLoss = (recentDeficit / 7700).toFixed(2);
+        document.getElementById('weightLossProgress').innerText = `${estimatedWeightLoss} kg`;
+
+        /* ==================== 體重明細與聯動對比 (比較最近一次) ==================== */
         const wListEl = document.getElementById('weightLogList');
         wListEl.innerHTML = '';
         
-        let actualLossText = "--";
-        if (appData.weightLogs.length >= 1) {
-            const firstW = appData.weightLogs[0].weight;
-            const latestW = appData.weightLogs[appData.weightLogs.length - 1].weight;
-            const diffW = (firstW - latestW).toFixed(2);
-            actualLossText = `${diffW}kg`;
+        appData.weightLogs.forEach(w => {
+            const wEl = document.createElement('div');
+            wEl.className = 'log-item type-weight';
+            wEl.style.padding = '6px 12px';
+            wEl.style.fontSize = '13px';
+            wEl.innerHTML = `
+                <div class="log-info">
+                    <strong>${w.weight} kg</strong> <span>(${w.date})</span>
+                </div>
+                <div class="log-actions">
+                    <button class="action-btn" onclick="editWeightItem(${w.id})">✏️</button>
+                    <button class="action-btn" onclick="deleteWeightItem(${w.id})">❌</button>
+                </div>
+            `;
+            wListEl.appendChild(wEl);
+        });
+
+        let actualDiffText = "--";
+        let predictedDiffText = "--";
+
+        if (appData.weightLogs.length >= 2) {
+            const lastIdx = appData.weightLogs.length - 1;
+            const wCurr = appData.weightLogs[lastIdx];
+            const wPrev = appData.weightLogs[lastIdx - 1];
             
-            appData.weightLogs.forEach(w => {
-                const wEl = document.createElement('div');
-                wEl.className = 'log-item type-weight';
-                wEl.style.padding = '6px 12px';
-                wEl.style.fontSize = '13px';
-                wEl.innerHTML = `
-                    <div class="log-info">
-                        <strong>${w.weight} kg</strong> <span>(${w.date})</span>
-                    </div>
-                    <div class="log-actions">
-                        <button class="action-btn" onclick="editWeightItem(${w.id})">✏️</button>
-                        <button class="action-btn" onclick="deleteWeightItem(${w.id})">❌</button>
-                    </div>
-                `;
-                wListEl.appendChild(wEl);
+            const actualDiff = (wPrev.weight - wCurr.weight).toFixed(2);
+            
+            let segDeficit = 0;
+            Object.keys(dateGroups).forEach(d => {
+                // 計算兩次量體重期間累積的赤字
+                if (d > wPrev.date && d <= wCurr.date) {
+                    const dayDeficit = (appData.tdee + dateGroups[d].burn) - dateGroups[d].eat;
+                    if (dayDeficit > 0) segDeficit += dayDeficit;
+                }
             });
+            const predictedDiff = (segDeficit / 7700).toFixed(2);
+            
+            actualDiffText = `${actualDiff}kg`;
+            predictedDiffText = `${predictedDiff}kg`;
+        } else if (appData.weightLogs.length === 1) {
+            actualDiffText = "0.00kg";
+            predictedDiffText = "0.00kg";
         }
-        document.getElementById('weightCompare').innerText = `實: ${actualLossText} / 預: ${estimatedWeightLoss}kg`;
+        
+        document.getElementById('weightCompare').innerText = `實: ${actualDiffText} / 預: ${predictedDiffText}`;
 
         generateChart();
     }
 
-    /* ==================== Chart.js 雙曲線引擎 ==================== */
+    /* ==================== Chart.js 雙曲線引擎 (每次紀錄自動重設起點) ==================== */
     function generateChart() {
         const ctx = document.getElementById('weightAnalyticsChart').getContext('2d');
         if (metricsChart) metricsChart.destroy();
@@ -859,28 +889,37 @@
 
         const labels = appData.weightLogs.map(w => w.date);
         const actualWeights = appData.weightLogs.map(w => w.weight);
-        const initialWeight = actualWeights[0];
         
-        const predictedWeights = appData.weightLogs.map(w => {
-            let dayDeficitAccum = 0;
-            const dateGroups = {};
-            
-            appData.logs.forEach(log => {
-                const logD = log.date.includes('/') ? getISODateString(safeParseDate(log.date)) : log.date;
-                if (logD <= w.date) {
-                    if (!dateGroups[logD]) dateGroups[logD] = { eat: 0, burn: 0 };
-                    if (log.type === 'food') dateGroups[logD].eat += log.cal;
-                    else dateGroups[logD].burn += log.cal;
-                }
-            });
-            
-            Object.keys(dateGroups).forEach(d => {
-                const dayDeficit = (appData.tdee + dateGroups[d].burn) - dateGroups[d].eat;
-                if (dayDeficit > 0) dayDeficitAccum += dayDeficit;
-            });
+        const predictedWeights = [];
 
-            return (initialWeight - (dayDeficitAccum / 7700)).toFixed(2);
-        });
+        for (let i = 0; i < appData.weightLogs.length; i++) {
+            if (i === 0) {
+                predictedWeights.push(actualWeights[0]);
+            } else {
+                const prevW = appData.weightLogs[i-1];
+                const currW = appData.weightLogs[i];
+                let segmentDeficit = 0;
+                
+                const dateGroups = {};
+                appData.logs.forEach(log => {
+                    const logD = log.date.includes('/') ? getISODateString(safeParseDate(log.date)) : log.date;
+                    if (logD > prevW.date && logD <= currW.date) {
+                        if (!dateGroups[logD]) dateGroups[logD] = { eat: 0, burn: 0 };
+                        if (log.type === 'food') dateGroups[logD].eat += log.cal;
+                        else dateGroups[logD].burn += log.cal;
+                    }
+                });
+                
+                Object.keys(dateGroups).forEach(d => {
+                    const dayDeficit = (appData.tdee + dateGroups[d].burn) - dateGroups[d].eat;
+                    if (dayDeficit > 0) segmentDeficit += dayDeficit;
+                });
+
+                // 新的預測點：以上一次實際體重為基底扣除中間累積的赤字
+                const predicted = actualWeights[i-1] - (segmentDeficit / 7700);
+                predictedWeights.push(predicted.toFixed(2));
+            }
+        }
 
         metricsChart = new Chart(ctx, {
             type: 'line',
@@ -909,8 +948,28 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',      // 開啟 Overlay Hover 模式
+                    intersect: false,   // 在同一垂直線上懸浮時會同時顯示兩筆數據
+                },
                 scales: { y: { beginAtZero: false } },
-                plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } }
+                plugins: { 
+                    legend: { position: 'top', labels: { boxWidth: 12 } },
+                    tooltip: {
+                        callbacks: {
+                            // 增加 Footer 以清楚顯示相差值
+                            footer: function(tooltipItems) {
+                                if (tooltipItems.length === 2) {
+                                    const actual = tooltipItems[0].parsed.y;
+                                    const predicted = tooltipItems[1].parsed.y;
+                                    const diff = Math.abs(actual - predicted).toFixed(2);
+                                    return `\n相差: ${diff} kg`; 
+                                }
+                                return '';
+                            }
+                        }
+                    }
+                }
             }
         });
     }
