@@ -3,6 +3,13 @@
     "tdee": 1750,
     "logs": [
       {
+        "id": 1788567111558,
+        "type": "food",
+        "name": "whole",
+        "cal": 1300,
+        "date": "2026-09-04"
+      },
+      {
         "id": 1788481295980,
         "type": "exercise",
         "name": "swim",
@@ -961,5 +968,5 @@
     ],
     "startDate": "2026-07-06"
   },
-  "lastUpdated": "2026-09-04T01:15:46.000Z"
+  "lastUpdated": "2026-09-05T00:12:06.061Z"
 }
