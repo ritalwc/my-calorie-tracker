@@ -3,6 +3,41 @@
     "tdee": 1750,
     "logs": [
       {
+        "id": 1789430851890,
+        "type": "exercise",
+        "name": "SWIM",
+        "cal": 619,
+        "date": "2026-09-15"
+      },
+      {
+        "id": 1789430924765,
+        "type": "food",
+        "name": "WHOLE",
+        "cal": 1400,
+        "date": "2026-09-14"
+      },
+      {
+        "id": 1789430915405,
+        "type": "food",
+        "name": "WHOLE",
+        "cal": 1400,
+        "date": "2026-09-13"
+      },
+      {
+        "id": 1789430901034,
+        "type": "food",
+        "name": "WHOLE",
+        "cal": 1500,
+        "date": "2026-09-12"
+      },
+      {
+        "id": 1789430873148,
+        "type": "food",
+        "name": "WHOLE",
+        "cal": 1500,
+        "date": "2026-09-11"
+      },
+      {
         "id": 1789086332097,
         "type": "exercise",
         "name": "SWIM",
@@ -1031,5 +1066,5 @@
     ],
     "startDate": "2026-07-06"
   },
-  "lastUpdated": "2026-09-11T00:25:37.399Z"
+  "lastUpdated": "2026-09-15T00:08:59.920Z"
 }
