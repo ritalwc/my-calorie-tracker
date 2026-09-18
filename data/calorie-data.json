@@ -3,6 +3,13 @@
     "tdee": 1750,
     "logs": [
       {
+        "id": 1789691203957,
+        "type": "exercise",
+        "name": "swim",
+        "cal": 671,
+        "date": "2026-09-18"
+      },
+      {
         "id": 1789430851890,
         "type": "exercise",
         "name": "SWIM",
@@ -1066,5 +1073,5 @@
     ],
     "startDate": "2026-07-06"
   },
-  "lastUpdated": "2026-09-15T00:08:59.920Z"
+  "lastUpdated": "2026-09-18T00:26:45.814Z"
 }
